@@ -1,0 +1,6 @@
+{
+  "name": "Messagerie Local",
+  "description": "Application de messagerie web locale et temps réel inspirée de WhatsApp, avec conversations privées, groupes, partage de fichiers et indicateurs de présence.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

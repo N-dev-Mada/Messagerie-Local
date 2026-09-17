@@ -1,29 +1,31 @@
-/.phpunit.cache
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/vendor
-/php
-.env
-/storage/app/livewire-tmp/*
-/storage/framework/cache/data/*
-/storage/framework/sessions/*
-/storage/framework/views/*
-/storage/logs/*
-/database/*.sqlite
-/public/build
-/public/storage
+# Next.js & Node
 node_modules
+/.next/
+/out/
+/build
+/dist
+
+# Env files
+.env
+.env*.local
 .env.backup
 .env.production
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-auth.json
-npm-debug.log
-yarn-error.log
-/.fleet
-/.idea
-/.vscode
+
+# Lockfiles from unsupported package managers
+bun.lock
+bun.lockb
+yarn.lock
+pnpm-lock.yaml
+
+# Logs & IDE
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea/
+.vscode/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

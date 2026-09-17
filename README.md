@@ -1,227 +1,156 @@
-# 💬 Messagerie (Messagerie-Local)
+# 💬 Messagerie-Local
 
-**Messagerie** est une application de chat web en temps réel, inspirée de l'interface de WhatsApp, développée avec **Laravel 11**, **Livewire 3** et **Laravel Reverb**. Elle est pensée pour être déployée sur un **réseau local (Wi‑Fi)** sans dépendre d'un hébergement en ligne : un lanceur Windows (`Lancer Messagerie.bat`) peut démarrer automatiquement le serveur web et le serveur WebSocket, permettant à plusieurs appareils du même réseau (PC, téléphones, tablettes) de discuter entre eux — d'où le nom du dépôt, **Messagerie-Local**.
+Application web de messagerie instantanée locale et temps réel, hautement optimisée, inspirée de l'interface authentique de **WhatsApp Web**. Conçue pour fonctionner de manière autonome sur réseau local (LAN) ou serveur privé sans dépendance à des services cloud tiers.
 
-> 📦 Ce README correspond à la version publiée sur GitHub du projet, qui suit les conventions standards d'un dépôt Git (dépendances, base de données et runtime PHP portable **non versionnés** — voir la section [Installation](#-installation)).
+---
 
-## Sommaire
+## 🚀 Fonctionnalités Clés
 
-- [Fonctionnalités](#-fonctionnalités)
-- [Stack technique](#-stack-technique)
-- [Architecture du projet](#-architecture-du-projet)
-- [Modèle de données](#-modèle-de-données)
-- [Temps réel : Reverb, canaux et événements](#-temps-réel--reverb-canaux-et-événements)
-- [Prérequis](#-prérequis)
-- [Installation](#-installation)
-- [Lancement en développement](#-lancement-en-développement)
-- [Lancement rapide sur réseau local (Windows)](#-lancement-rapide-sur-réseau-local-windows)
-- [Variables d'environnement clés](#-variables-denvironnement-clés)
-- [Tests](#-tests)
-- [Sécurité & limites connues](#-sécurité--limites-connues)
-- [Pistes d'amélioration](#-pistes-damélioration)
-- [Licence](#-licence)
+### 🎨 Expérience & Interface WhatsApp Authentique
+- **Fidélité visuelle** : Palette emblématique WhatsApp (`#008069`, `#00a884`, fond texturé `#efeae2`, bulles expéditeur `#d9fdd3`).
+- **Discussions 1 à 1 & Groupes** : Messagerie directe instantanée et salons de groupe avec sélection multiple de participants.
+- **Tiroir d'informations de conversation** : Consultation des membres du groupe, date de création, galerie des médias et documents partagés avec téléchargement.
+- **Visualiseur Média plein écran (Lightbox)** : Zoom, prévisualisation HD et téléchargement des images reçues.
+- **Sélecteur d'émojis intégré** : Liste catégorisée d'émojis sans dépendance externe lourde.
 
-## ✨ Fonctionnalités
+### ⚡ Performance & Multimédia Avancé
+- **Compression d'images WebP côté client (HTML5 Canvas)** :
+  - Détection automatique et redimensionnement intelligent des photos volumineuses avant téléversement.
+  - Réduction de **70% à 90%** du poids des images avec badge d'économie affiché en direct.
+- **Messages Vocaux (Web Audio API & MediaRecorder)** :
+  - Enregistrement direct depuis le microphone avec chronomètre et jauge dynamique.
+  - Lecteur audio sur-mesure intégré aux bulles de discussion (forme d'onde stylisée, contrôle de lecture, vitesse variable 1x / 1.5x / 2x).
+- **Pagination fluide (Infinite Scroll)** :
+  - Chargement dynamique par lots de 30 messages avec bouton « Charger les messages précédents » et conservation précise de la position de défilement.
+- **Réponses & Citations contextuelles** :
+  - Clic sur le bouton répondre pour citer un message antérieur avec survol interactif et aperçu miniature.
+- **Modification & Suppression réversible / définitive** :
+  - Menu contextuel pour éditer un message envoyé ou le supprimer avec avertissement modal.
 
-- **Conversations privées (1 à 1)** : démarrage instantané d'une discussion depuis une recherche de contact par nom.
-- **Conversations de groupe** : création de groupes nommés avec sélection multiple de participants (table pivot `conversation_user`).
-- **Messagerie en temps réel** via WebSockets (Laravel Reverb) : les messages apparaissent instantanément chez le(s) destinataire(s), sans rechargement de page.
-- **Indicateur de présence en ligne / hors ligne** grâce à un canal de présence Reverb (`online`).
-- **Indicateur "en train d'écrire…"** implémenté avec les événements *whisper* d'Echo (signal client-à-client, non persisté en base).
-- **Statut de lecture des messages** (`is_read`) avec badge de messages non lus par conversation.
-- **Partage de fichiers et d'images** dans les messages (upload Livewire, stockage dans `storage/app/public/attachments`, aperçu image intégré ou lien de téléchargement).
-- **Interface responsive** au style WhatsApp (liste des discussions en colonne + fenêtre de chat), adaptée mobile et desktop.
-- **Authentification complète** (inscription, connexion, vérification d'email, réinitialisation de mot de passe, gestion du profil) fournie par **Laravel Breeze** en version Livewire/Volt.
-- **Rafraîchissement périodique de la liste des conversations** (`wire:poll`) en complément du temps réel.
+### 🌐 Fiabilité Réseau, Mode Hors-Ligne & LAN
+- **File d'attente hors-ligne (Offline Queue & LocalStorage)** :
+  - Bannière dynamique de perte de connexion réseau (`navigator.onLine` et détection d'échec d'API).
+  - Les messages envoyés hors-ligne s'affichent avec une **icône horloge (🕒)** et sont stockés localement.
+  - Dès rétablissement du réseau, la file d'attente est automatiquement dépilée dans l'ordre chronologique.
+- **Recherche globale multi-niveaux & Saut contextuel** :
+  - Recherche simultanée parmi les contacts, les conversations et l'ensemble du corpus des messages.
+  - Clic sur un message trouvé pour ouvrir la conversation correspondante, défiler directement jusqu'à la bulle ciblée et la mettre en valeur avec une animation lumineuse.
+- **Connexion Smartphone LAN instantanée** :
+  - Détection automatique de l'adresse IP locale de la machine hôte (`192.168.x.x:3000`).
+  - Générateur de **QR Code** scannable avec l'appareil photo d'un smartphone sur le même réseau Wi-Fi.
+- **Sélecteur rapide d'utilisateurs** :
+  - Bascule instantanée entre profils de test (Alice, Bob, Charlie, etc.) pour valider les échanges multi-utilisateurs sur une même machine ou entre différents appareils.
 
-## 🛠 Stack technique
+---
 
-| Domaine | Technologie |
-|---|---|
-| Framework backend | [Laravel 11](https://laravel.com) (PHP ^8.2) |
-| Composants réactifs | [Livewire 3.6](https://livewire.laravel.com) + [Volt 1.7](https://livewire.laravel.com/docs/volt) (pages d'authentification en syntaxe fonctionnelle) |
-| Temps réel / WebSockets | [Laravel Reverb](https://laravel.com/docs/reverb) (serveur WebSocket auto-hébergé) |
-| Client WebSocket | [Laravel Echo](https://github.com/laravel/echo) + [Pusher JS](https://github.com/pusher/pusher-js) (protocole Pusher, backend Reverb) |
-| Interactivité front | [Alpine.js](https://alpinejs.dev) (intégré à Livewire) |
-| Style | [Tailwind CSS 3](https://tailwindcss.com) + `@tailwindcss/forms` |
-| Build front | [Vite 5](https://vitejs.dev) |
-| Base de données | SQLite (par défaut) |
-| Authentification | [Laravel Breeze](https://laravel.com/docs/starter-kits#laravel-breeze) |
-| Tests | PHPUnit 10 |
+## 🛠️ Stack Technique
 
-## 🏗 Architecture du projet
+| Domaine | Technologies |
+| :--- | :--- |
+| **Framework Web** | [Next.js 15+](https://nextjs.org/) (App Router, Server Components & Route Handlers) |
+| **Langage** | [TypeScript](https://www.typescriptlang.org/) (Typage strict de bout en bout) |
+| **Styles & Design System** | [Tailwind CSS v4](https://tailwindcss.com/) & [tw-animate-css](https://github.com) |
+| **Icônes** | [Lucide React](https://lucide.dev/) |
+| **Audio & Médias** | HTML5 MediaRecorder API, Web Audio API, Canvas 2D (WebP Compression) |
+| **Synchronisation & État** | BroadcastChannel API, Polling optimisé, LocalStorage Persistence |
+| **QR Code** | `qrcode` (Rendu SVG/Canvas sans service distant) |
 
-```
-Messagerie-Local/
-├── Lancer Messagerie.bat      # Lanceur portable Windows (serveur web + Reverb)
-├── app/
-│   ├── Events/
-│   │   └── MessageSent.php        # Événement broadcasté à l'envoi d'un message
-│   ├── Livewire/
-│   │   ├── ChatComponent.php      # Composant central : conversations, messages, groupes, recherche
-│   │   ├── Actions/Logout.php
-│   │   └── Forms/LoginForm.php
-│   ├── Models/
-│   │   ├── User.php
-│   │   ├── Conversation.php       # Conversations 1-à-1 et groupes
-│   │   └── Message.php
-│   ├── Providers/
-│   │   ├── AppServiceProvider.php
-│   │   └── VoltServiceProvider.php
-│   └── View/Components/           # Layouts (AppLayout, GuestLayout)
-├── database/
-│   ├── migrations/                # users, conversations, messages, groupes, statut de lecture
-│   ├── factories/
-│   └── seeders/
-├── resources/
-│   ├── views/
-│   │   ├── livewire/
-│   │   │   ├── chat-component.blade.php   # Interface principale de messagerie
-│   │   │   └── pages/auth/                # Écrans d'authentification (Volt)
-│   │   ├── dashboard.blade.php            # Point d'entrée : héberge <livewire:chat-component />
-│   │   └── layouts/
-│   └── js/
-│       ├── app.js
-│       ├── bootstrap.js
-│       └── echo.js                        # Configuration du client Echo (broadcaster: reverb)
-├── routes/
-│   ├── web.php                    # Routes publiques (accueil, dashboard, profil)
-│   ├── auth.php                   # Routes d'authentification (Volt)
-│   └── channels.php                # Autorisations des canaux de diffusion
-└── config/reverb.php              # Configuration du serveur WebSocket
-```
+---
 
-> Les dossiers `vendor/` (dépendances Composer), `php/` (runtime PHP portable) et le fichier `.env` **ne sont pas présents dans le dépôt** : ils sont exclus via `.gitignore` et doivent être régénérés/fournis localement (voir ci-dessous).
+## 📦 Installation & Démarrage Rapide
 
-## 🗄 Modèle de données
+### Prérequis
+- [Node.js](https://nodejs.org/) v18.17 ou version ultérieure
+- Gestionnaire de paquets `npm`, `yarn` ou `pnpm`
 
-**`users`** — comptes utilisateurs (authentification standard Laravel).
-
-**`conversations`**
-- `user_one_id`, `user_two_id` : les deux participants d'une conversation privée (contrainte d'unicité sur la paire).
-- `is_group` (bool) et `name` : activés lorsque la conversation est un groupe.
-- Relations : `userOne()`, `userTwo()`, `messages()`, `participants()` (via la table pivot `conversation_user` pour les groupes).
-
-**`messages`**
-- `conversation_id`, `sender_id`, `body` (nullable), `file_path`, `file_type`, `is_read`, `read_at`.
-- Un message peut contenir uniquement du texte, uniquement une pièce jointe, ou les deux.
-
-**`conversation_user`** (table pivot) — liste des membres d'une conversation de groupe.
-
-## ⚡ Temps réel : Reverb, canaux et événements
-
-1. À l'envoi d'un message (`ChatComponent::sendMessage`), le message est enregistré puis l'événement `App\Events\MessageSent` est diffusé via `broadcast(...)->toOthers()`.
-2. `MessageSent` implémente `ShouldBroadcastNow` et cible un **canal privé** `chat.{conversation_id}` (voir `routes/channels.php`), qui vérifie que l'utilisateur authentifié est bien participant (ou membre du groupe) de la conversation.
-3. Côté client, `resources/views/livewire/chat-component.blade.php` utilise **Alpine.js + Echo** pour :
-   - rejoindre le canal de **présence** `online` et signaler qui est connecté (`updateOnlineUsers`) ;
-   - s'abonner au canal privé de la conversation active et rafraîchir messages/conversations à la réception de `MessageSent` ;
-   - écouter/émettre l'événement *whisper* `typing` pour l'indicateur « en train d'écrire… ».
-4. Le serveur Reverb (WebSocket) tourne indépendamment du serveur HTTP Laravel — les deux processus doivent être démarrés (voir sections suivantes).
-
-## ✅ Prérequis
-
-- PHP **≥ 8.2** avec les extensions usuelles de Laravel (pdo_sqlite, mbstring, etc.), installé globalement sur la machine
-- [Composer](https://getcomposer.org)
-- Node.js (≥ 18 recommandé) et npm
-- Extension PHP SQLite activée (base par défaut)
-- Git
-
-## 📥 Installation
-
-Contrairement à l'archive de distribution portable, ce dépôt Git ne contient **ni les dépendances (`vendor/`, `node_modules/`), ni le fichier `.env`, ni de base de données `.sqlite`, ni le runtime PHP portable (`php/`)**. Ces éléments doivent être générés après clonage :
-
+### 1. Cloner le projet et installer les dépendances
 ```bash
-# 1. Cloner le dépôt
-git clone https://github.com/<votre-compte>/Messagerie-Local.git
-cd Messagerie-Local
-
-# 2. Installer les dépendances PHP
-composer install
-
-# 3. Installer les dépendances front
+git clone https://github.com/votre-compte/messagerie-local.git
+cd messagerie-local
 npm install
-
-# 4. Copier le fichier d'environnement et générer la clé d'application
-cp .env.example .env
-php artisan key:generate
-
-# 5. Créer la base SQLite et exécuter les migrations
-touch database/database.sqlite
-php artisan migrate
-
-# 6. Créer le lien symbolique vers le stockage public (pièces jointes)
-php artisan storage:link
-
-# 7. Compiler les assets front
-npm run build   # ou "npm run dev" en mode watch
 ```
 
-## ▶️ Lancement en développement
-
-**Deux serveurs** doivent tourner simultanément (dans deux terminaux distincts) :
-
+### 2. Démarrer le serveur de développement
 ```bash
-# Terminal 1 : serveur WebSocket (obligatoire pour le temps réel)
-php artisan reverb:start
-
-# Terminal 2 : serveur applicatif Laravel
-php artisan serve
+npm run dev
 ```
 
-Par défaut, activez `BROADCAST_CONNECTION=reverb` dans votre `.env` (voir [Variables d'environnement clés](#-variables-denvironnement-clés)), puis rendez-vous sur `http://127.0.0.1:8000`.
+L'application s'ouvre sur **http://localhost:3000** (ou sur l'adresse `0.0.0.0:3000` accessible depuis le réseau local).
 
-## 🖥 Lancement rapide sur réseau local (Windows)
-
-Le dépôt inclut le script `Lancer Messagerie.bat`, qui détecte automatiquement l'IP Wi-Fi locale et démarre Reverb (`--port=8080`) puis le serveur Laravel (`--port=8000`) sur `0.0.0.0`, afin que d'autres appareils du même réseau puissent se connecter via `http://<IP_DU_SERVEUR>:8000/dashboard`.
-
-⚠️ **Point d'attention propre à la version GitHub** : ce script appelle explicitement `php\php.exe` (chemin relatif au dossier `php/`), qui n'est **pas fourni dans le dépôt** (exclu par `.gitignore` car il s'agit de plusieurs centaines de Mo de binaires Windows). Deux options :
-
-1. **Utiliser un PHP installé globalement** : ignorez le `.bat` et lancez `php artisan reverb:start --host=0.0.0.0 --port=8080` puis `php artisan serve --host=0.0.0.0 --port=8000` manuellement (voir section précédente), en remplaçant `php` par le chemin de votre exécutable si besoin.
-2. **Reconstituer un PHP portable** : téléchargez une version *Non Thread Safe* (NTS) portable de PHP 8.2+ pour Windows depuis [windows.php.net/download](https://windows.php.net/download/), placez-la dans un dossier `php/` à la racine du projet (contenant `php.exe`), puis double-cliquez sur `Lancer Messagerie.bat`.
-
-> Usage recommandé pour un réseau local de confiance (LAN domestique/bureau, démo) — voir les limites de sécurité ci-dessous avant toute exposition sur Internet.
-
-## 🔧 Variables d'environnement clés
-
-| Variable | Rôle |
-|---|---|
-| `APP_NAME` | Nom de l'application (`Messagerie`) |
-| `APP_URL` | URL de base de l'application |
-| `DB_CONNECTION=sqlite` | Base de données SQLite par défaut |
-| `BROADCAST_CONNECTION=reverb` | Active Reverb comme driver de diffusion temps réel |
-| `REVERB_APP_ID` / `REVERB_APP_KEY` / `REVERB_APP_SECRET` | Identifiants de l'application Reverb (WebSocket) — à générer vous-même, aucune valeur n'est fournie dans `.env.example` |
-| `REVERB_SERVER_HOST` / `REVERB_HOST` / `REVERB_PORT` | Adresse/port d'écoute du serveur WebSocket |
-| `VITE_REVERB_*` | Équivalents exposés au bundle front (Echo côté navigateur) |
-| `FILESYSTEM_DISK` | Disque utilisé pour le stockage des fichiers (pièces jointes via `public`) |
-
-## 🧪 Tests
-
-Le projet inclut la suite de tests standard livrée par Laravel Breeze (authentification, profil) :
-
+### 3. Compiler pour la production
 ```bash
-php artisan test
+npm run build
+npm start
 ```
 
-Aucun test automatisé ne couvre actuellement le module de messagerie (`ChatComponent`, événements de diffusion) — c'est une piste d'amélioration naturelle (voir ci-dessous).
+---
 
-## 🔒 Sécurité & limites connues
+## 📱 Guide de Connexion Réseau Local (LAN)
 
-- `.env.example` livre `APP_DEBUG=true` et `APP_ENV=local` par défaut : à changer avant toute exposition publique.
-- Les serveurs lancés via `php artisan serve --host=0.0.0.0` ou le `.bat` sont accessibles à toute la machine du réseau local — adapté à un LAN de confiance, pas à un déploiement public sans pare-feu/reverse proxy/HTTPS.
-- `php artisan serve` est un serveur de développement, non recommandé en production (préférer Nginx/Apache + PHP-FPM, et un vrai processus superviseur pour `reverb:start`).
-- Les pièces jointes sont servies directement depuis `storage/app/public` sans contrôle d'accès applicatif au-delà de l'authentification globale.
-- Les identifiants Reverb (`REVERB_APP_KEY`/`SECRET`) doivent être générés par chaque déploiement — aucune valeur par défaut n'est versionnée dans ce dépôt.
+Pour utiliser l'application depuis votre smartphone ou un autre ordinateur connecté à la même box / point d'accès Wi-Fi :
 
-## 🗺 Pistes d'amélioration
+1. **Identifier l'adresse IP de votre machine hôte** :
+   - Sur **Windows** : Ouvrez un terminal `cmd` ou `PowerShell` et tapez `ipconfig` (recherchez l'adresse IPv4, ex: `192.168.1.45`).
+   - Sur **macOS / Linux** : Ouvrez un terminal et tapez `ip a` ou `ifconfig` (ou `ipconfig getifaddr en0`).
+2. **Ouvrir le port ou utiliser le QR Code** :
+   - Cliquez sur le bouton **« Connexion Smartphone »** ou l'icône 📱 en haut de la messagerie.
+   - Le QR Code généré contient directement le lien `http://<VOTRE-IP-LOCALE>:3000`.
+   - Scannez le QR Code avec l'appareil photo de votre smartphone (iOS ou Android) : l'application s'ouvre instantanément.
 
-- Accusés de lecture par message (au-delà du compteur global de non-lus).
-- Suppression/modification de messages, réactions.
-- Gestion des rôles/admin dans les groupes (ajout/retrait de membres, avatar de groupe).
-- Notifications (navigateur ou push) en dehors de l'onglet actif.
-- Pagination/chargement progressif de l'historique des messages.
-- Tests automatisés dédiés au chat et à la diffusion temps réel.
-- Conteneurisation (Docker/Sail) pour un déploiement multiplateforme simplifié, en remplacement du script `.bat` + PHP portable.
+---
 
-## 📄 Licence
+## 🔒 Guide Configuration HTTPS Local (Microphone & Notifications)
 
-Le squelette applicatif est basé sur le framework [Laravel](https://laravel.com), distribué sous licence [MIT](https://opensource.org/licenses/MIT). Le code spécifique à l'application **Messagerie** (composants, modèles, vues de chat) ne comporte pas de licence explicite fournie dans ce dépôt ; à définir selon l'usage souhaité (par exemple en ajoutant un fichier `LICENSE`).
+> 💡 **Pourquoi le HTTPS est-il requis sur mobile ?**  
+> Les navigateurs modernes (Chrome Android, Safari iOS) bloquent par sécurité l'accès au microphone (`MediaRecorder`) et aux notifications système sur les adresses IP non sécurisées (`http://192.168.x.x`). Seul `http://localhost` est exempté.  
+> Pour profiter des **messages vocaux** depuis un smartphone sur le réseau local, il suffit d'activer un certificat local de confiance avec **mkcert**.
+
+### Étape 1 : Installer mkcert
+- **macOS** (via Homebrew) :
+  ```bash
+  brew install mkcert
+  brew install nss # pour Firefox si nécessaire
+  mkcert -install
+  ```
+- **Windows** (via Chocolatey ou Scoop) :
+  ```bash
+  choco install mkcert
+  mkcert -install
+  ```
+- **Linux** (Debian/Ubuntu) :
+  ```bash
+  sudo apt install libnss3-tools
+  curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+  chmod +x mkcert-v*-linux-amd64 && sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+  mkcert -install
+  ```
+
+### Étape 2 : Générer les certificats pour votre IP locale
+Remplacez `192.168.1.45` par votre adresse IP locale :
+```bash
+mkcert -key-file localhost-key.pem -cert-file localhost.pem localhost 127.0.0.1 192.168.1.45
+```
+
+### Étape 3 : Lancer Next.js avec le support HTTPS
+Ajoutez ou adaptez la commande de démarrage dans votre `package.json` :
+```json
+"scripts": {
+  "dev:https": "next dev --experimental-https --experimental-https-key ./localhost-key.pem --experimental-https-cert ./localhost.pem -H 0.0.0.0 -p 3000"
+}
+```
+Puis lancez :
+```bash
+npm run dev:https
+```
+
+### Étape 4 : Installer le certificat racine sur votre smartphone
+- Envoyez-vous le fichier d'autorité racine généré par `mkcert -CAROOT` (`rootCA.pem`) sur votre smartphone (par AirDrop, e-mail ou téléchargement local).
+- Installez le profil de certificat dans les paramètres de sécurité de votre smartphone (sur iOS : *Réglages > Général > Profils*, puis activez la confiance dans *Réglages > Général > Informations > Réglages des certificats*).
+- Vous disposez à présent d'une connexion `https://192.168.x.x:3000` reconnue comme sûre, avec enregistrement vocal et notifications 100% fonctionnels !
+
+---
+
+## 👥 Auteur & Licence
+
+Projet développé avec passion pour la communication d'équipe locale, rapide, privée et sécurisée.  
+Distribué sous licence **MIT**.
