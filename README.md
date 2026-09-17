@@ -152,5 +152,6 @@ npm run dev:https
 
 ## 👥 Auteur & Licence
 
-Projet développé avec passion pour la communication d'équipe locale, rapide, privée et sécurisée.  
+Projet développé avec passion pour la communication sans contrainte, rapide, privée et sécurisée.
+Ceci est le prémier produit concret de la suite N-product à venir par Nancy150907
 Distribué sous licence **MIT**.
