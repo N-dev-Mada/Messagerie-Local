@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { User } from '@/lib/types';
 import { MessageSquare, UserCheck, ChevronDown, LogOut, User as UserIcon, Plus, Smartphone, QrCode } from 'lucide-react';
+import { ConnectionStatusBadge, ConnectionState } from '@/components/ConnectionStatusBadge';
+import { PWAInstallButton } from '@/components/PWAInstallButton';
 
 interface NavbarProps {
   currentUser: User;
@@ -11,6 +13,8 @@ interface NavbarProps {
   onNewUser: (name: string, email: string) => void;
   onOpenProfile: () => void;
   onOpenMobileConnect?: () => void;
+  connectionStatus?: ConnectionState;
+  onReconnect?: () => void;
 }
 
 export default function Navbar({
@@ -20,6 +24,8 @@ export default function Navbar({
   onNewUser,
   onOpenProfile,
   onOpenMobileConnect,
+  connectionStatus = 'connected',
+  onReconnect,
 }: NavbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -37,29 +43,38 @@ export default function Navbar({
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          {/* Brand Logo */}
+          {/* Brand Logo & Connection Status */}
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-[#008069] flex items-center justify-center text-white shadow-sm">
               <MessageSquare className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Messagerie</span>
-              <span className="hidden sm:inline-block ml-2 text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
-                Réseau Local
-              </span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Messagerie</span>
+                <span className="hidden md:inline-block text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                  Réseau Local
+                </span>
+              </div>
+            </div>
+            {/* Discrete Header Connection Status Indicator */}
+            <div className="ml-1 sm:ml-2">
+              <ConnectionStatusBadge status={connectionStatus} onReconnect={onReconnect} />
             </div>
           </div>
 
-          {/* User Status and Fast Account Switcher */}
-          <div className="flex items-center space-x-2.5">
+          {/* User Status, PWA Install & LAN Fast Account Switcher */}
+          <div className="flex items-center space-x-2 sm:space-x-2.5">
+            {/* In-App PWA Install Button */}
+            <PWAInstallButton />
+
             {/* Mobile / Smartphone LAN Connect Button */}
             {onOpenMobileConnect && (
               <button
                 type="button"
                 onClick={onOpenMobileConnect}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-[#008069] border border-emerald-200 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
+                className="inline-flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-[#008069] border border-emerald-200 hover:bg-emerald-100 transition shadow-2xs cursor-pointer"
                 title="Se connecter depuis un smartphone ou un autre appareil sur le réseau local"
               >
                 <Smartphone className="w-4 h-4 text-[#008069]" />

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="waGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00a884" />
+      <stop offset="100%" stop-color="#008069" />
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  <!-- Background circle with soft shadow -->
+  <circle cx="256" cy="256" r="236" fill="url(#waGrad)" filter="url(#dropShadow)" />
+  
+  <!-- WhatsApp inspired speech bubble -->
+  <path d="M256 104 C172.05 104 104 172.05 104 256 C104 285.5 112.5 313.1 127.2 336.5 L108 408 L182.2 388.8 C204.6 401.3 229.6 408 256 408 C339.95 408 408 339.95 408 256 C408 172.05 339.95 104 256 104 Z" fill="#ffffff" />
+  
+  <!-- Subtle inner chat lines / phone handset symbol in green -->
+  <path d="M210 190 C202 190 194 196 194 204 C194 252 232 290 280 290 C288 290 294 284 294 276 L294 254 C294 248 289 243 283 241 L262 236 C257 235 251 237 248 241 L240 250 C222 241 208 227 199 209 L208 201 C212 198 214 192 213 187 L208 166 C206 160 201 155 195 155" fill="#008069" transform="translate(18, 18) scale(0.9)" />
+  
+  <!-- Local Network Signal waves -->
+  <circle cx="340" cy="180" r="16" fill="#00a884" />
+  <path d="M320 150 A38 38 0 0 1 360 150" fill="none" stroke="#00a884" stroke-width="6" stroke-linecap="round" />
+  <path d="M308 132 A58 58 0 0 1 372 132" fill="none" stroke="#00a884" stroke-width="6" stroke-linecap="round" />
+</svg>

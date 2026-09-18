@@ -1,224 +1,197 @@
+import { getDatabase } from './db';
+import { saveBase64Media } from './mediaStorage';
 import { User, Conversation, Message, QuotedMessage } from './types';
 
-// Pre-seeded users matching Laravel DatabaseSeeder
-export let users: User[] = [
-  { id: 1, name: 'John Doe', email: 'test@example.com' },
-  { id: 2, name: 'Alice Smith', email: 'alice@example.com' },
-  { id: 3, name: 'Bob Johnson', email: 'bob@example.com' },
-  { id: 4, name: 'Charlie Brown', email: 'charlie@example.com' },
-  { id: 5, name: 'David Miller', email: 'david@example.com' },
-  { id: 6, name: 'Emma Watson', email: 'emma@example.com' },
-];
-
-export let conversations: Conversation[] = [
-  {
-    id: 1,
-    is_group: false,
-    name: null,
-    user_one_id: 1,
-    user_two_id: 2,
-    participants: [1, 2],
-    created_at: new Date(Date.now() - 3600000 * 24 * 3).toISOString(),
-    updated_at: new Date(Date.now() - 120000).toISOString(),
-  },
-  {
-    id: 2,
-    is_group: true,
-    name: 'Équipe Projet Messagerie',
-    user_one_id: 1,
-    user_two_id: 1,
-    participants: [1, 2, 3, 6],
-    admin_ids: [1],
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    id: 3,
-    is_group: false,
-    name: null,
-    user_one_id: 1,
-    user_two_id: 3,
-    participants: [1, 3],
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    updated_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
-
-// Helper to generate a realistic history of messages in Conversation 1 to test pagination (> 40 messages)
-const seededHistoricalMessages: Message[] = [];
-let mId = 1;
-const baseTime = Date.now() - 3600000 * 20; // 20 hours ago
-
-const dialoguePrompts = [
-  { s: 2, t: 'Bonjour John ! As-tu réussi à configurer le routeur local pour le bureau ?' },
-  { s: 1, t: 'Salut Alice ! Oui, l’adresse IP locale est bien attribuée et stable.' },
-  { s: 2, t: 'Superbe. Le temps de réponse sur le Wi-Fi est quasi instantané.' },
-  { s: 1, t: 'Exactement, moins de 5ms entre les deux postes.' },
-  { s: 2, t: 'Est-ce qu’on a testé l’envoi de gros fichiers sans compression ?' },
-  { s: 1, t: 'On a constaté que les photos brutes de 12 Mo ralentissaient l’affichage.' },
-  { s: 2, t: 'Oui, c’est pour ça qu’une conversion WebP automatique côté client est indispensable.' },
-  { s: 1, t: 'Tout à fait, le canvas HTML5 redimensionne jusqu’à 1920px max sans perte visible.' },
-  { s: 2, t: 'Et pour l’historique des conversations avec des centaines de messages ?' },
-  { s: 1, t: 'On charge les 40 derniers messages au démarrage, puis les anciens au scroll vers le haut.' },
-  { s: 2, t: 'Génial ! Le scroll virtuel évite de saturer le DOM sur mobile.' },
-  { s: 1, t: 'Exact, et la position de défilement est conservée sans aucun saut.' },
-  { s: 2, t: 'As-tu pensé au sélecteur d’émojis pour agrémenter les discussions ?' },
-  { s: 1, t: 'Oui, avec recherche rapide par mots-clés et catégories.' },
-  { s: 2, t: 'Parfait, c’est exactement l’expérience familière de WhatsApp.' },
-  { s: 1, t: 'Je prépare une démonstration pour toute l’équipe cet après-midi.' },
-  { s: 2, t: 'Bob et Charlie seront là aussi ?' },
-  { s: 1, t: 'Oui, ils sont connectés sur le réseau local.' },
-  { s: 2, t: 'Très bien, je leur envoie un rappel tout de suite.' },
-  { s: 1, t: 'Merci beaucoup Alice.' },
-  { s: 2, t: 'De rien ! As-tu vérifié les permissions sur le répertoire partagé ?' },
-  { s: 1, t: 'Oui, lecture et écriture sans restriction pour les membres du groupe.' },
-  { s: 2, t: 'Top. Et pour la sécurité sur le LAN ?' },
-  { s: 1, t: 'L’isolation du sous-réseau est active.' },
-  { s: 2, t: 'Impeccable.' },
-  { s: 1, t: 'Voici la liste des points techniques validés pour la Phase 1.' },
-  { s: 2, t: 'Je la lis attentivement.' },
-  { s: 1, t: '1. Compression d’image WebP par canvas.' },
-  { s: 2, t: '2. Pagination dynamique 40 messages avec scroll infini ascendant.' },
-  { s: 1, t: '3. Sélecteur d’émojis natif intégré dans la barre de saisie.' },
-  { s: 2, t: '4. Maintien parfait de l’interface WhatsApp.' },
-  { s: 1, t: 'Les tests de performance sont très concluants.' },
-  { s: 2, t: 'Le chargement initial est ultra fluide maintenant.' },
-  { s: 1, t: 'Oui, plus de latence même sur un vieux smartphone.' },
-  { s: 2, t: 'C’est une énorme amélioration par rapport au chargement complet.' },
-  { s: 1, t: 'Je vais continuer à ajouter des échanges pour enrichir la base de test.' },
-  { s: 2, t: 'Bonne idée, plus on a de messages, mieux on teste le scroll.' },
-  { s: 1, t: 'On approche des 50 messages dans ce canal.' },
-  { s: 2, t: 'Excellent pour valider le chargement par tranches !' },
-  { s: 1, t: 'Tu peux faire défiler tout en haut pour voir les premiers messages apparaître.' },
-  { s: 2, t: 'Ça fonctionne immédiatement sans saccade.' },
-  { s: 1, t: 'Tous les indicateurs sont au vert.' },
-  { s: 2, t: 'Parfait, continuons le suivi sur ce canal !' },
-  { s: 1, t: 'Je reste disponible si tu as la moindre remarque.' },
-  { s: 2, t: 'Merci John, à tout de suite !' },
-];
-
-dialoguePrompts.forEach((item, index) => {
-  seededHistoricalMessages.push({
-    id: mId++,
-    conversation_id: 1,
-    sender_id: item.s,
-    body: item.t,
-    file_path: null,
-    file_type: null,
-    is_read: true,
-    created_at: new Date(baseTime + index * 1200000).toISOString(),
-  });
-});
-
-// Add group messages for Conversation 2
-const groupMessages: Message[] = [
-  {
-    id: mId++,
-    conversation_id: 2,
-    sender_id: 3,
-    body: 'Bonjour à tous ! Ravi de tester le nouveau groupe de discussion de l’équipe.',
-    file_path: null,
-    file_type: null,
-    is_read: true,
-    created_at: new Date(Date.now() - 86400000 + 10000).toISOString(),
-  },
-  {
-    id: mId++,
-    conversation_id: 2,
-    sender_id: 6,
-    body: 'Superbe interface inspirée de WhatsApp ! Les pièces jointes et émojis sont également supportés.',
-    file_path: null,
-    file_type: null,
-    is_read: false,
-    created_at: new Date(Date.now() - 1800000).toISOString(),
-  },
-];
-
-// Add 1-on-1 messages for Conversation 3
-const conv3Messages: Message[] = [
-  {
-    id: mId++,
-    conversation_id: 3,
-    sender_id: 3,
-    body: 'Est-ce que tu as pu regarder les documents envoyés hier ?',
-    file_path: null,
-    file_type: null,
-    is_read: false,
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
-
-export let messages: Message[] = [
-  ...seededHistoricalMessages,
-  ...groupMessages,
-  ...conv3Messages,
-];
-
-let nextUserId = 7;
-let nextConvId = 4;
-let nextMsgId = mId;
-
-// In-memory typing indicator store: conversationId -> { [userId: number]: timestamp }
+// In-memory ephemeral map for typing indicator states (TTL: 3s)
 export const typingMap = new Map<number, { userId: number; name: string; timestamp: number }>();
 
-function enrichMessage(m: Message): Message {
-  let reply_to = m.reply_to;
-  if (m.reply_to_id && !reply_to) {
-    const quoted = messages.find(q => q.id === m.reply_to_id);
-    if (quoted) {
-      const qSender = users.find(u => u.id === quoted.sender_id);
+// Database entity converters
+interface DbUserRow {
+  id: number;
+  name: string;
+  email: string;
+  created_at: string;
+}
+
+interface DbConversationRow {
+  id: number;
+  is_group: number;
+  name: string | null;
+  user_one_id: number;
+  user_two_id: number;
+  participants: string; // JSON array
+  admin_ids: string | null; // JSON array
+  created_at: string;
+  updated_at: string;
+}
+
+interface DbMessageRow {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  body: string | null;
+  file_path: string | null;
+  file_type: string | null;
+  file_name: string | null;
+  reply_to_id: number | null;
+  is_read: number;
+  status: string;
+  is_edited: number;
+  is_deleted_for_all: number;
+  deleted_for_users: string | null; // JSON array
+  created_at: string;
+}
+
+function rowToUser(row: DbUserRow): User {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+  };
+}
+
+function parseJsonArray<T>(val: string | null | undefined, fallback: T[] = []): T[] {
+  if (!val) return fallback;
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function rowToConversation(row: DbConversationRow): Conversation {
+  return {
+    id: row.id,
+    is_group: Boolean(row.is_group),
+    name: row.name,
+    user_one_id: row.user_one_id,
+    user_two_id: row.user_two_id,
+    participants: parseJsonArray<number>(row.participants),
+    admin_ids: parseJsonArray<number>(row.admin_ids),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function rowToMessage(row: DbMessageRow): Message {
+  return {
+    id: row.id,
+    conversation_id: row.conversation_id,
+    sender_id: row.sender_id,
+    body: row.body,
+    file_path: row.file_path,
+    file_type: row.file_type,
+    file_name: row.file_name,
+    reply_to_id: row.reply_to_id,
+    is_read: Boolean(row.is_read),
+    status: (row.status as any) || (row.is_read ? 'read' : 'delivered'),
+    is_edited: Boolean(row.is_edited),
+    is_deleted_for_all: Boolean(row.is_deleted_for_all),
+    deleted_for_users: parseJsonArray<number>(row.deleted_for_users),
+    created_at: row.created_at,
+  };
+}
+
+export function getAllUsers(): User[] {
+  const db = getDatabase();
+  const rows: DbUserRow[] = db.prepare('SELECT id, name, email, created_at FROM users ORDER BY id ASC').all();
+  return rows.map(rowToUser);
+}
+
+export function getUserById(id: number): User | null {
+  const db = getDatabase();
+  const row: DbUserRow | undefined = db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?').get(id);
+  return row ? rowToUser(row) : null;
+}
+
+export function enrichMessage(msg: Message, userMap?: Map<number, User>): Message {
+  const db = getDatabase();
+
+  let sender = userMap ? userMap.get(msg.sender_id) : getUserById(msg.sender_id);
+  if (!sender) {
+    sender = { id: msg.sender_id, name: 'Utilisateur', email: '' };
+  }
+
+  let reply_to: QuotedMessage | null = null;
+  if (msg.reply_to_id) {
+    const qRow: DbMessageRow | undefined = db.prepare('SELECT * FROM messages WHERE id = ?').get(msg.reply_to_id);
+    if (qRow) {
+      const qSender = userMap ? userMap.get(qRow.sender_id) : getUserById(qRow.sender_id);
+      const isDeleted = Boolean(qRow.is_deleted_for_all);
       reply_to = {
-        id: quoted.id,
+        id: qRow.id,
         sender_name: qSender?.name || 'Contact',
-        body: quoted.is_deleted_for_all ? '🚫 Ce message a été supprimé' : quoted.body,
-        file_name: quoted.is_deleted_for_all ? null : quoted.file_name,
-        file_type: quoted.is_deleted_for_all ? null : quoted.file_type,
+        body: isDeleted ? '🚫 Ce message a été supprimé' : qRow.body,
+        file_name: isDeleted ? null : qRow.file_name,
+        file_type: isDeleted ? null : qRow.file_type,
       };
     }
   }
+
   return {
-    ...m,
-    status: m.status || (m.is_read ? 'read' : 'delivered'),
-    is_edited: m.is_edited || false,
-    is_deleted_for_all: m.is_deleted_for_all || false,
-    deleted_for_users: m.deleted_for_users || [],
-    sender: users.find(u => u.id === m.sender_id),
+    ...msg,
+    sender,
     reply_to,
   };
 }
 
 export function getFullConversationsForUser(userId: number, initialMessageLimit = 40) {
-  const userConvs = conversations.filter(c => {
-    if (c.is_group) {
-      return c.participants.includes(userId);
+  const db = getDatabase();
+  const allUsers = getAllUsers();
+  const userMap = new Map<number, User>(allUsers.map(u => [u.id, u]));
+
+  const convRows: DbConversationRow[] = db.prepare('SELECT * FROM conversations ORDER BY updated_at DESC').all();
+
+  const userConvs: Conversation[] = [];
+  for (const row of convRows) {
+    const conv = rowToConversation(row);
+    if (conv.is_group) {
+      if (conv.participants.includes(userId)) {
+        userConvs.push(conv);
+      }
+    } else {
+      if (conv.user_one_id === userId || conv.user_two_id === userId) {
+        userConvs.push(conv);
+      }
     }
-    return c.user_one_id === userId || c.user_two_id === userId;
-  });
+  }
 
   const enriched = userConvs.map(conv => {
-    const allConvMessages = messages
-      .filter(m => m.conversation_id === conv.id && (!m.deleted_for_users || !m.deleted_for_users.includes(userId)))
-      .map(enrichMessage)
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    // Fetch count
+    const countRow = db.prepare(`
+      SELECT COUNT(*) as count FROM messages
+      WHERE conversation_id = ?
+    `).get(conv.id);
+    const total = countRow ? Number(countRow.count) : 0;
 
-    const total = allConvMessages.length;
-    // Initial slice: only the last initialMessageLimit messages
-    const slicedMessages = initialMessageLimit > 0 && total > initialMessageLimit
-      ? allConvMessages.slice(-initialMessageLimit)
-      : allConvMessages;
+    // Fetch messages for this conversation
+    const limit = initialMessageLimit > 0 ? initialMessageLimit : 40;
+    const msgRows: DbMessageRow[] = db.prepare(`
+      SELECT * FROM (
+        SELECT * FROM messages
+        WHERE conversation_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?
+      ) ORDER BY created_at ASC, id ASC
+    `).all(conv.id, limit);
+
+    const messages = msgRows
+      .map(rowToMessage)
+      .filter(m => !m.deleted_for_users || !m.deleted_for_users.includes(userId))
+      .map(m => enrichMessage(m, userMap));
 
     return {
       ...conv,
-      messages: slicedMessages,
+      messages,
       totalMessages: total,
-      hasMore: total > slicedMessages.length,
-      userOne: users.find(u => u.id === conv.user_one_id),
-      userTwo: users.find(u => u.id === conv.user_two_id),
-      participantsList: conv.participants.map(pid => users.find(u => u.id === pid)!).filter(Boolean),
+      hasMore: total > messages.length,
+      userOne: userMap.get(conv.user_one_id),
+      userTwo: userMap.get(conv.user_two_id),
+      participantsList: conv.participants.map(pid => userMap.get(pid)!).filter(Boolean),
     };
   });
 
-  // Sort by last message date descending
   return enriched.sort((a, b) => {
     const aLast = a.messages[a.messages.length - 1]?.created_at || a.created_at;
     const bLast = b.messages[b.messages.length - 1]?.created_at || b.created_at;
@@ -226,38 +199,64 @@ export function getFullConversationsForUser(userId: number, initialMessageLimit 
   });
 }
 
-/**
- * Paginate older messages for a conversation when scrolling upwards.
- * If beforeId is provided, returns messages strictly before that ID.
- */
 export function getPaginatedMessages(conversationId: number, limit = 40, beforeId?: number, userId?: number) {
   if (!conversationId || isNaN(conversationId)) {
     return { messages: [], hasMore: false, totalRemaining: 0 };
   }
 
-  const allConvMessages = messages
-    .filter(m => m.conversation_id === conversationId && (!userId || !m.deleted_for_users || !m.deleted_for_users.includes(userId)))
-    .map(enrichMessage)
-    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const db = getDatabase();
+  const allUsers = getAllUsers();
+  const userMap = new Map<number, User>(allUsers.map(u => [u.id, u]));
 
-  let filtered = allConvMessages;
+  let totalRemaining = 0;
+  let msgRows: DbMessageRow[] = [];
+
   if (beforeId && !isNaN(beforeId)) {
-    const index = allConvMessages.findIndex(m => m.id === beforeId);
-    if (index !== -1) {
-      filtered = allConvMessages.slice(0, index);
-    } else {
-      filtered = allConvMessages.filter(m => m.id < beforeId);
-    }
+    // Count how many messages exist with id < beforeId
+    const countRow = db.prepare(`
+      SELECT COUNT(*) as count FROM messages
+      WHERE conversation_id = ? AND id < ?
+    `).get(conversationId, beforeId);
+    const countBefore = countRow ? Number(countRow.count) : 0;
+
+    msgRows = db.prepare(`
+      SELECT * FROM (
+        SELECT * FROM messages
+        WHERE conversation_id = ? AND id < ?
+        ORDER BY id DESC
+        LIMIT ?
+      ) ORDER BY id ASC
+    `).all(conversationId, beforeId, limit);
+
+    totalRemaining = Math.max(0, countBefore - msgRows.length);
+  } else {
+    const countRow = db.prepare(`
+      SELECT COUNT(*) as count FROM messages
+      WHERE conversation_id = ?
+    `).get(conversationId);
+    const countTotal = countRow ? Number(countRow.count) : 0;
+
+    msgRows = db.prepare(`
+      SELECT * FROM (
+        SELECT * FROM messages
+        WHERE conversation_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+      ) ORDER BY id ASC
+    `).all(conversationId, limit);
+
+    totalRemaining = Math.max(0, countTotal - msgRows.length);
   }
 
-  const totalOlder = filtered.length;
-  const chunk = limit > 0 && totalOlder > limit ? filtered.slice(-limit) : filtered;
-  const hasMore = totalOlder > chunk.length;
+  const messages = msgRows
+    .map(rowToMessage)
+    .filter(m => !userId || !m.deleted_for_users || !m.deleted_for_users.includes(userId))
+    .map(m => enrichMessage(m, userMap));
 
   return {
-    messages: chunk,
-    hasMore,
-    totalRemaining: Math.max(0, totalOlder - chunk.length),
+    messages,
+    hasMore: totalRemaining > 0,
+    totalRemaining,
   };
 }
 
@@ -269,202 +268,258 @@ export function createMessage(params: {
   file_type: string | null;
   file_name?: string | null;
   reply_to_id?: number | null;
-}) {
-  let reply_to: QuotedMessage | null = null;
-  if (params.reply_to_id) {
-    const quoted = messages.find(m => m.id === params.reply_to_id);
-    if (quoted) {
-      const qSender = users.find(u => u.id === quoted.sender_id);
-      reply_to = {
-        id: quoted.id,
-        sender_name: qSender?.name || 'Contact',
-        body: quoted.is_deleted_for_all ? '🚫 Ce message a été supprimé' : quoted.body,
-        file_name: quoted.is_deleted_for_all ? null : quoted.file_name,
-        file_type: quoted.is_deleted_for_all ? null : quoted.file_type,
-      };
+}): Message {
+  const db = getDatabase();
+  const nowIso = new Date().toISOString();
+
+  let finalFilePath = params.file_path;
+  let finalFileType = params.file_type;
+  let finalFileName = params.file_name || null;
+
+  // Persist base64 data to disk in /public/uploads/ to prevent RAM saturation (Anti-OOM)
+  if (params.file_path && params.file_path.startsWith('data:')) {
+    try {
+      const stored = saveBase64Media(params.file_path, params.file_type, params.file_name);
+      finalFilePath = stored.filePath;
+      finalFileType = stored.fileType;
+      finalFileName = stored.fileName;
+    } catch (err) {
+      console.error('Failed to save media file to disk:', err);
     }
   }
 
-  const newMsg: Message = {
-    id: nextMsgId++,
-    conversation_id: params.conversation_id,
-    sender_id: params.sender_id,
-    body: params.body ? params.body.trim() : null,
-    file_path: params.file_path,
-    file_type: params.file_type,
-    file_name: params.file_name,
-    reply_to_id: params.reply_to_id || null,
-    reply_to,
-    is_read: false,
-    status: 'delivered',
-    is_edited: false,
-    is_deleted_for_all: false,
-    deleted_for_users: [],
-    created_at: new Date().toISOString(),
-  };
+  const stmt = db.prepare(`
+    INSERT INTO messages (
+      conversation_id, sender_id, body, file_path, file_type, file_name,
+      reply_to_id, is_read, status, is_edited, is_deleted_for_all, deleted_for_users, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'delivered', 0, 0, '[]', ?)
+  `);
 
-  messages.push(newMsg);
+  const info = stmt.run(
+    params.conversation_id,
+    params.sender_id,
+    params.body ? params.body.trim() : null,
+    finalFilePath,
+    finalFileType,
+    finalFileName,
+    params.reply_to_id || null,
+    nowIso
+  );
+
+  const insertedId = Number(info.lastInsertRowid);
 
   // Update conversation updated_at
-  const conv = conversations.find(c => c.id === params.conversation_id);
-  if (conv) {
-    conv.updated_at = newMsg.created_at;
-  }
+  db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(nowIso, params.conversation_id);
 
-  return {
-    ...newMsg,
-    sender: users.find(u => u.id === newMsg.sender_id),
-    reply_to,
-  };
+  const rawRow: DbMessageRow = db.prepare('SELECT * FROM messages WHERE id = ?').get(insertedId);
+  return enrichMessage(rowToMessage(rawRow));
 }
 
-export function editMessage(messageId: number, userId: number, newBody: string) {
-  const msg = messages.find(m => m.id === messageId);
-  if (!msg || msg.sender_id !== userId || msg.is_deleted_for_all) {
+export function editMessage(messageId: number, userId: number, newBody: string): Message | null {
+  const db = getDatabase();
+  const row: DbMessageRow | undefined = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
+  if (!row || row.sender_id !== userId || row.is_deleted_for_all) {
     return null;
   }
-  msg.body = newBody.trim();
-  msg.is_edited = true;
-  return enrichMessage(msg);
+
+  db.prepare('UPDATE messages SET body = ?, is_edited = 1 WHERE id = ?').run(newBody.trim(), messageId);
+  const updatedRow: DbMessageRow = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
+  return enrichMessage(rowToMessage(updatedRow));
 }
 
-export function deleteMessage(messageId: number, userId: number, deleteFor: 'me' | 'everyone') {
-  const msg = messages.find(m => m.id === messageId);
-  if (!msg) return null;
+export function deleteMessage(messageId: number, userId: number, deleteFor: 'me' | 'everyone'): Message | null {
+  const db = getDatabase();
+  const row: DbMessageRow | undefined = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
+  if (!row) return null;
 
   if (deleteFor === 'everyone') {
-    const conv = conversations.find(c => c.id === msg.conversation_id);
-    const isAdmin = Boolean(conv?.is_group && conv?.admin_ids?.includes(userId));
-    if (msg.sender_id !== userId && !isAdmin) {
+    const convRow: DbConversationRow | undefined = db.prepare('SELECT * FROM conversations WHERE id = ?').get(row.conversation_id);
+    const adminIds = convRow ? parseJsonArray<number>(convRow.admin_ids) : [];
+    const isGroup = convRow ? Boolean(convRow.is_group) : false;
+    const isAdmin = isGroup && adminIds.includes(userId);
+
+    if (row.sender_id !== userId && !isAdmin) {
       return null;
     }
-    msg.is_deleted_for_all = true;
-    msg.body = '🚫 Ce message a été supprimé';
-    msg.file_path = null;
-    msg.file_type = null;
-    msg.file_name = null;
-    msg.reply_to = null;
-    msg.reply_to_id = null;
-    return enrichMessage(msg);
+
+    db.prepare(`
+      UPDATE messages SET
+        is_deleted_for_all = 1,
+        body = '🚫 Ce message a été supprimé',
+        file_path = NULL,
+        file_type = NULL,
+        file_name = NULL,
+        reply_to_id = NULL
+      WHERE id = ?
+    `).run(messageId);
+
+    const updatedRow: DbMessageRow = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
+    return enrichMessage(rowToMessage(updatedRow));
   } else {
     // Delete for me
-    if (!msg.deleted_for_users) msg.deleted_for_users = [];
-    if (!msg.deleted_for_users.includes(userId)) {
-      msg.deleted_for_users.push(userId);
+    const currentDeleted = parseJsonArray<number>(row.deleted_for_users);
+    if (!currentDeleted.includes(userId)) {
+      currentDeleted.push(userId);
+      db.prepare('UPDATE messages SET deleted_for_users = ? WHERE id = ?').run(
+        JSON.stringify(currentDeleted),
+        messageId
+      );
     }
-    return enrichMessage(msg);
+    const updatedRow: DbMessageRow = db.prepare('SELECT * FROM messages WHERE id = ?').get(messageId);
+    return enrichMessage(rowToMessage(updatedRow));
   }
 }
 
 export function createGroupConversation(name: string, creatorId: number, participantIds: number[]) {
+  const db = getDatabase();
   const uniqueParticipants = Array.from(new Set([creatorId, ...participantIds]));
-  const conv: Conversation = {
-    id: nextConvId++,
-    is_group: true,
-    name: name.trim(),
-    user_one_id: creatorId,
-    user_two_id: creatorId,
-    participants: uniqueParticipants,
-    admin_ids: [creatorId],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  conversations.push(conv);
-  return conv;
+  const nowIso = new Date().toISOString();
+
+  const stmt = db.prepare(`
+    INSERT INTO conversations (is_group, name, user_one_id, user_two_id, participants, admin_ids, created_at, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const info = stmt.run(
+    name.trim(),
+    creatorId,
+    creatorId,
+    JSON.stringify(uniqueParticipants),
+    JSON.stringify([creatorId]),
+    nowIso,
+    nowIso
+  );
+
+  const insertedId = Number(info.lastInsertRowid);
+  const row: DbConversationRow = db.prepare('SELECT * FROM conversations WHERE id = ?').get(insertedId);
+  return rowToConversation(row);
 }
 
 export function addGroupMember(conversationId: number, adminUserId: number, newMemberId: number) {
-  const conv = conversations.find(c => c.id === conversationId && c.is_group);
-  if (!conv) return { error: 'Groupe introuvable' };
-  if (conv.admin_ids && conv.admin_ids.length > 0 && !conv.admin_ids.includes(adminUserId)) {
+  const db = getDatabase();
+  const row: DbConversationRow | undefined = db.prepare('SELECT * FROM conversations WHERE id = ? AND is_group = 1').get(conversationId);
+  if (!row) return { error: 'Groupe introuvable' };
+
+  const adminIds = parseJsonArray<number>(row.admin_ids);
+  if (adminIds.length > 0 && !adminIds.includes(adminUserId)) {
     return { error: 'Seuls les administrateurs peuvent ajouter des membres' };
   }
-  if (!conv.participants.includes(newMemberId)) {
-    conv.participants.push(newMemberId);
-    conv.updated_at = new Date().toISOString();
+
+  const participants = parseJsonArray<number>(row.participants);
+  if (!participants.includes(newMemberId)) {
+    participants.push(newMemberId);
+    const nowIso = new Date().toISOString();
+    db.prepare('UPDATE conversations SET participants = ?, updated_at = ? WHERE id = ?').run(
+      JSON.stringify(participants),
+      nowIso,
+      conversationId
+    );
   }
-  return { success: true, conversation: conv };
+
+  const updated: DbConversationRow = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+  return { success: true, conversation: rowToConversation(updated) };
 }
 
 export function removeGroupMember(conversationId: number, adminUserId: number, targetMemberId: number) {
-  const conv = conversations.find(c => c.id === conversationId && c.is_group);
-  if (!conv) return { error: 'Groupe introuvable' };
-  if (conv.admin_ids && conv.admin_ids.length > 0 && !conv.admin_ids.includes(adminUserId)) {
+  const db = getDatabase();
+  const row: DbConversationRow | undefined = db.prepare('SELECT * FROM conversations WHERE id = ? AND is_group = 1').get(conversationId);
+  if (!row) return { error: 'Groupe introuvable' };
+
+  const adminIds = parseJsonArray<number>(row.admin_ids);
+  if (adminIds.length > 0 && !adminIds.includes(adminUserId)) {
     return { error: 'Seuls les administrateurs peuvent retirer des membres' };
   }
-  conv.participants = conv.participants.filter(id => id !== targetMemberId);
-  if (conv.admin_ids) {
-    conv.admin_ids = conv.admin_ids.filter(id => id !== targetMemberId);
-  }
-  conv.updated_at = new Date().toISOString();
-  return { success: true, conversation: conv };
+
+  const participants = parseJsonArray<number>(row.participants).filter(id => id !== targetMemberId);
+  const newAdminIds = adminIds.filter(id => id !== targetMemberId);
+  const nowIso = new Date().toISOString();
+
+  db.prepare('UPDATE conversations SET participants = ?, admin_ids = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(participants),
+    JSON.stringify(newAdminIds),
+    nowIso,
+    conversationId
+  );
+
+  const updated: DbConversationRow = db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId);
+  return { success: true, conversation: rowToConversation(updated) };
 }
 
 export function leaveGroup(conversationId: number, userId: number) {
-  const conv = conversations.find(c => c.id === conversationId && c.is_group);
-  if (!conv) return { error: 'Groupe introuvable' };
-  conv.participants = conv.participants.filter(id => id !== userId);
-  if (conv.admin_ids) {
-    conv.admin_ids = conv.admin_ids.filter(id => id !== userId);
-    if (conv.admin_ids.length === 0 && conv.participants.length > 0) {
-      conv.admin_ids = [conv.participants[0]];
-    }
+  const db = getDatabase();
+  const row: DbConversationRow | undefined = db.prepare('SELECT * FROM conversations WHERE id = ? AND is_group = 1').get(conversationId);
+  if (!row) return { error: 'Groupe introuvable' };
+
+  const participants = parseJsonArray<number>(row.participants).filter(id => id !== userId);
+  let adminIds = parseJsonArray<number>(row.admin_ids).filter(id => id !== userId);
+  if (adminIds.length === 0 && participants.length > 0) {
+    adminIds = [participants[0]];
   }
-  conv.updated_at = new Date().toISOString();
-  return { success: true, conversation: conv };
+  const nowIso = new Date().toISOString();
+
+  db.prepare('UPDATE conversations SET participants = ?, admin_ids = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(participants),
+    JSON.stringify(adminIds),
+    nowIso,
+    conversationId
+  );
+
+  return { success: true };
 }
 
-export function getOrCreateOneOnOneConversation(userA: number, userB: number) {
+export function getOrCreateOneOnOneConversation(userA: number, userB: number): Conversation {
+  const db = getDatabase();
   const one = Math.min(userA, userB);
   const two = Math.max(userA, userB);
 
-  let conv = conversations.find(c => !c.is_group && c.user_one_id === one && c.user_two_id === two);
-  if (!conv) {
-    conv = {
-      id: nextConvId++,
-      is_group: false,
-      name: null,
-      user_one_id: one,
-      user_two_id: two,
-      participants: [one, two],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    conversations.push(conv);
+  const existingRow: DbConversationRow | undefined = db.prepare(`
+    SELECT * FROM conversations
+    WHERE is_group = 0 AND user_one_id = ? AND user_two_id = ?
+  `).get(one, two);
+
+  if (existingRow) {
+    return rowToConversation(existingRow);
   }
-  return conv;
+
+  const nowIso = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO conversations (is_group, name, user_one_id, user_two_id, participants, admin_ids, created_at, updated_at)
+    VALUES (0, NULL, ?, ?, ?, NULL, ?, ?)
+  `);
+
+  const info = stmt.run(one, two, JSON.stringify([one, two]), nowIso, nowIso);
+  const insertedId = Number(info.lastInsertRowid);
+  const newRow: DbConversationRow = db.prepare('SELECT * FROM conversations WHERE id = ?').get(insertedId);
+  return rowToConversation(newRow);
 }
 
 export function markConversationAsRead(conversationId: number, readerId: number) {
-  messages.forEach(m => {
-    if (m.conversation_id === conversationId && m.sender_id !== readerId) {
-      m.is_read = true;
-      m.status = 'read';
-    }
-  });
+  const db = getDatabase();
+  db.prepare(`
+    UPDATE messages
+    SET is_read = 1, status = 'read'
+    WHERE conversation_id = ? AND sender_id != ?
+  `).run(conversationId, readerId);
 }
 
-export function registerUser(name: string, email: string) {
-  const existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (existing) {
-    return existing;
+export function registerUser(name: string, email: string): User {
+  const db = getDatabase();
+  const existingRow: DbUserRow | undefined = db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)').get(email);
+  if (existingRow) {
+    return rowToUser(existingRow);
   }
-  const newUser: User = {
-    id: nextUserId++,
-    name,
-    email,
-  };
-  users.push(newUser);
-  return newUser;
+
+  const info = db.prepare('INSERT INTO users (name, email) VALUES (?, ?)').run(name.trim(), email.trim());
+  const insertedId = Number(info.lastInsertRowid);
+  const newRow: DbUserRow = db.prepare('SELECT * FROM users WHERE id = ?').get(insertedId);
+  return rowToUser(newRow);
 }
 
-export function updateUser(id: number, name: string, email: string) {
-  const user = users.find(u => u.id === id);
-  if (user) {
-    user.name = name;
-    user.email = email;
-  }
-  return user;
+export function updateUser(id: number, name: string, email: string): User | null {
+  const db = getDatabase();
+  db.prepare('UPDATE users SET name = ?, email = ? WHERE id = ?').run(name.trim(), email.trim(), id);
+  const updatedRow: DbUserRow | undefined = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  return updatedRow ? rowToUser(updatedRow) : null;
 }
 
 export interface SearchResultItem {
@@ -481,46 +536,55 @@ export function searchGlobalMessages(userId: number, query: string): SearchResul
   const q = query.trim().toLowerCase();
   if (!q) return [];
 
-  // Get conversations the user is a participant of
-  const userConvs = conversations.filter(c => c.participants.includes(userId));
-  const convMap = new Map<number, Conversation>();
-  userConvs.forEach(c => convMap.set(c.id, c));
+  const db = getDatabase();
+  const allUsers = getAllUsers();
+  const userMap = new Map<number, User>(allUsers.map(u => [u.id, u]));
+
+  // Get conversations the user belongs to
+  const convRows: DbConversationRow[] = db.prepare('SELECT * FROM conversations').all();
+  const userConvs = convRows.map(rowToConversation).filter(c => c.participants.includes(userId));
+  const convMap = new Map<number, Conversation>(userConvs.map(c => [c.id, c]));
+
+  if (userConvs.length === 0) return [];
+
+  const msgRows: DbMessageRow[] = db.prepare(`
+    SELECT * FROM messages
+    WHERE is_deleted_for_all = 0
+      AND (LOWER(body) LIKE ? OR LOWER(file_name) LIKE ?)
+    ORDER BY created_at DESC
+    LIMIT 100
+  `).all(`%${q}%`, `%${q}%`);
 
   const results: SearchResultItem[] = [];
 
-  for (const m of messages) {
-    if (!convMap.has(m.conversation_id)) continue;
-    if (m.deleted_for_users && m.deleted_for_users.includes(userId)) continue;
-    if (m.is_deleted_for_all) continue;
+  for (const row of msgRows) {
+    if (!convMap.has(row.conversation_id)) continue;
 
-    const bodyMatch = m.body && m.body.toLowerCase().includes(q);
-    const fileMatch = m.file_name && m.file_name.toLowerCase().includes(q);
+    const deletedFor = parseJsonArray<number>(row.deleted_for_users);
+    if (deletedFor.includes(userId)) continue;
 
-    if (bodyMatch || fileMatch) {
-      const conv = convMap.get(m.conversation_id)!;
-      let convName = conv.name;
-      if (!conv.is_group) {
-        const otherId = conv.participants.find(p => p !== userId) || userId;
-        const otherUser = users.find(u => u.id === otherId);
-        convName = otherUser ? otherUser.name : 'Discussion privée';
-      }
-
-      const sender = users.find(u => u.id === m.sender_id);
-      const senderName = m.sender_id === userId ? 'Vous' : (sender ? sender.name : 'Utilisateur');
-
-      results.push({
-        message: m,
-        conversationId: m.conversation_id,
-        conversationName: convName || 'Conversation',
-        isGroup: conv.is_group,
-        senderName,
-        matchedText: m.body || m.file_name || '',
-        createdAt: m.created_at,
-      });
+    const conv = convMap.get(row.conversation_id)!;
+    let convName = conv.name;
+    if (!conv.is_group) {
+      const otherId = conv.participants.find(p => p !== userId) || userId;
+      const otherUser = userMap.get(otherId);
+      convName = otherUser ? otherUser.name : 'Discussion privée';
     }
+
+    const sender = userMap.get(row.sender_id);
+    const senderName = row.sender_id === userId ? 'Vous' : (sender ? sender.name : 'Utilisateur');
+    const msg = enrichMessage(rowToMessage(row), userMap);
+
+    results.push({
+      message: msg,
+      conversationId: row.conversation_id,
+      conversationName: convName || 'Conversation',
+      isGroup: conv.is_group,
+      senderName,
+      matchedText: msg.body || msg.file_name || '',
+      createdAt: msg.created_at,
+    });
   }
 
-  // Sort by recent first
-  return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return results;
 }
-
