@@ -210,4 +210,4 @@ Ce projet est conçu et maintenu par :
 
 ## 📄 Licence
 
-Ce projet est distribué sous licence **MIT**. Vous êtes libre de l'utiliser, l'étudier, le modifier et le déployer au sein de votre infrastructure personnelle ou professionnelle.
+Ce projet est distribué sous licence [MIT](LICENSE). Vous êtes libre de l'utiliser, l'étudier, le modifier et le déployer au sein de votre infrastructure personnelle ou professionnelle.
